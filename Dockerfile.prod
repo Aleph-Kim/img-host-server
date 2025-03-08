@@ -1,0 +1,12 @@
+FROM golang:1.24
+
+WORKDIR /app
+
+COPY . .
+
+# 모듈 초기화
+RUN go mod download
+
+RUN go build -o main ./cmd/server/main.go
+
+CMD ["./main"]
