@@ -1,14 +1,13 @@
-FROM golang:1.20-alpine
+FROM golang:1.24
 
 WORKDIR /app
-COPY . .
+
+# Air 설치
+RUN go install github.com/air-verse/air@v1.61.7
 
 # 모듈 초기화
-RUN go mod init img-host || true
-RUN go mod tidy
+COPY go.mod ./
+RUN go mod download
 
-RUN go build -o server .
-
-EXPOSE 3000
-
-CMD ["./server"]
+# CMD ["./server"]
+CMD ["air"]
