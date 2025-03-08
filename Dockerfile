@@ -10,4 +10,4 @@ COPY go.mod ./
 RUN go mod download
 
 # CMD ["./server"]
-CMD ["air"]
+CMD ["air", "-c", ".air.toml"]
