@@ -3,7 +3,6 @@ package handlers
 import (
 	"fmt"
 	"img-host-server/internal/utils"
-	"io"
 	"log"
 	"net/http"
 	"os"
@@ -61,22 +60,57 @@ func UploadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	out, err := os.Create(savePath)
-	if err != nil {
-		log.Println("파일 저장 실패:", err)
-		utils.RespondJSON(w, http.StatusInternalServerError, "파일 저장에 실패했습니다.")
-		return
-	}
-	defer out.Close()
-
 	// 파일 저장
-	if _, err = io.Copy(out, file); err != nil {
+	if err := utils.SaveUploadedFile(file, savePath); err != nil {
 		log.Println("파일 저장 실패:", err)
 		utils.RespondJSON(w, http.StatusInternalServerError, "파일 저장에 실패했습니다.")
 		return
 	}
 
 	utils.RespondJSON(w, http.StatusCreated, fmt.Sprintf("파일 업로드 성공: %s", filename))
+}
+
+// 파일 수정 (PUT /files/{filename})
+func UpdateFile(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	filename := vars["filename"]
+
+	if filename == "" {
+		utils.RespondJSON(w, http.StatusBadRequest, "파일 이름을 입력해주세요.")
+		return
+	}
+
+	filePath := filepath.Join(uploadPath, filepath.Clean(filename))
+
+	// 수정할 파일이 존재하는지 확인합니다.
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		utils.RespondJSON(w, http.StatusNotFound, "수정할 파일이 존재하지 않습니다.")
+		return
+	}
+
+	// 요청 파싱 (10MB 제한)
+	if err := r.ParseMultipartForm(10 << 20); err != nil {
+		utils.RespondJSON(w, http.StatusBadRequest, "잘못된 요청입니다.")
+		return
+	}
+
+	// 새 파일 데이터를 가져옵니다.
+	file, _, err := r.FormFile("file")
+	if err != nil {
+		log.Println("파일 업로드 실패:", err)
+		utils.RespondJSON(w, http.StatusBadRequest, "파일을 읽어오는데 실패했습니다.")
+		return
+	}
+	defer file.Close()
+
+	// 파일 저장
+	if err := utils.SaveUploadedFile(file, filePath); err != nil {
+		log.Println("파일 저장 실패:", err)
+		utils.RespondJSON(w, http.StatusInternalServerError, "파일 저장에 실패했습니다.")
+		return
+	}
+
+	utils.RespondJSON(w, http.StatusOK, fmt.Sprintf("파일 수정 성공: %s", filename))
 }
 
 // 파일 다운로드 (GET /files/{filename})
