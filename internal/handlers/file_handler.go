@@ -38,15 +38,18 @@ func UploadFile(w http.ResponseWriter, r *http.Request) {
 
 	// 파일명 안전 처리
 	filename := filepath.Clean(filepath.Base(header.Filename))
-	savePath := filepath.Join(uploadPath, filename)
+	// 요청 body에 filename이 있으면 해당 값을 사용, 없으면 header.Filename 사용
+	if formFilename := r.FormValue("filename"); formFilename != "" {
+		filename = formFilename
+	}
 
-	out, err := os.Create(savePath)
-	if err != nil {
-		log.Println("파일 저장 실패:", err)
-		utils.RespondJSON(w, http.StatusInternalServerError, "파일 저장에 실패했습니다.")
+	// 특수문자 필터링
+	if !utils.IsValidFileName(filename) {
+		utils.RespondJSON(w, http.StatusBadRequest, "파일명은 한글, 알파벳, 숫자, 밑줄(_), 대시(-), 점(.)외의 문자를 허용하지 않습니다.")
 		return
 	}
-	defer out.Close()
+
+	savePath := filepath.Join(uploadPath, filename)
 
 	// 같은 이름의 파일 존재 여부 체크
 	if _, err := os.Stat(savePath); err == nil {
@@ -57,6 +60,14 @@ func UploadFile(w http.ResponseWriter, r *http.Request) {
 		utils.RespondJSON(w, http.StatusInternalServerError, "파일 존재 여부 체크에 실패했습니다.")
 		return
 	}
+
+	out, err := os.Create(savePath)
+	if err != nil {
+		log.Println("파일 저장 실패:", err)
+		utils.RespondJSON(w, http.StatusInternalServerError, "파일 저장에 실패했습니다.")
+		return
+	}
+	defer out.Close()
 
 	// 파일 저장
 	if _, err = io.Copy(out, file); err != nil {
