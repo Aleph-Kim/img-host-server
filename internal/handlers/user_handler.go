@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"img-host-server/internal/utils"
 
+	"github.com/joho/godotenv"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -18,6 +20,29 @@ type User struct {
 
 // 사용자 등록 (POST /users)
 func SaveUser(w http.ResponseWriter, r *http.Request) {
+	// .env 파일 로딩
+	if err := godotenv.Load(); err != nil {
+		log.Println("Error loading .env file")
+		utils.RespondJSON(w, http.StatusInternalServerError, "서버 환경 설정을 불러오는 데 실패했습니다.")
+		return
+	}
+
+	// 환경 변수에서 관리자 비밀번호 가져오기
+	adminPassword := os.Getenv("ADMIN_PASSWORD")
+	if adminPassword == "" {
+		log.Println("관리자 비밀번호가 설정되지 않았습니다.")
+		utils.RespondJSON(w, http.StatusInternalServerError, "관리자 비밀번호가 설정되지 않았습니다.")
+		return
+	}
+
+	// 관리자 인증 체크
+	authHeader := r.Header.Get("Authorization")
+	if authHeader != adminPassword {
+		log.Println("관리자 인증 실패")
+		utils.RespondJSON(w, http.StatusForbidden, "관리자만 사용자 등록이 가능합니다.")
+		return
+	}
+
 	// 요청 바디에서 username 디코딩
 	var newUser User
 	if err := json.NewDecoder(r.Body).Decode(&newUser); err != nil {
