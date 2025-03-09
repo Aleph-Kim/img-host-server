@@ -48,6 +48,16 @@ func UploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	defer out.Close()
 
+	// 같은 이름의 파일 존재 여부 체크
+	if _, err := os.Stat(savePath); err == nil {
+		utils.RespondJSON(w, http.StatusConflict, "같은 이름의 파일이 이미 존재합니다.")
+		return
+	} else if !os.IsNotExist(err) {
+		log.Println("파일 존재 여부 체크 실패:", err)
+		utils.RespondJSON(w, http.StatusInternalServerError, "파일 존재 여부 체크에 실패했습니다.")
+		return
+	}
+
 	// 파일 저장
 	if _, err = io.Copy(out, file); err != nil {
 		log.Println("파일 저장 실패:", err)
