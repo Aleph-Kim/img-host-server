@@ -7,6 +7,9 @@ services:
       dockerfile: Dockerfile.prod
     ports:
       - "3000:3000"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./internal/db:/app/internal/db
   dev:
     build:
       context: .
