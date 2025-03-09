@@ -15,7 +15,7 @@ func main() {
 	// 파일 관련 RESTful 엔드포인트 설정
 	r.HandleFunc("/files", handlers.UploadFile).Methods("POST")
 	r.HandleFunc("/files/{filename}", handlers.UpdateFile).Methods("PUT")
-	r.HandleFunc("/files/{filename}", handlers.GetFile).Methods("GET")
+	r.HandleFunc("/files/{username}/{filename}", handlers.GetFile).Methods("GET")
 	r.HandleFunc("/files/{filename}", handlers.DeleteFile).Methods("DELETE")
 
 	log.Println("서버 시작: 포트 3000")

@@ -11,10 +11,18 @@ import (
 	"github.com/gorilla/mux"
 )
 
+// 파일 업로드 저장 기본 경로
 const uploadPath = "./uploads"
 
 // 파일 업로드 (POST /files)
 func UploadFile(w http.ResponseWriter, r *http.Request) {
+	// 인증 체크
+	username, err := utils.CheckAuth(r)
+	if err != nil {
+		utils.RespondJSON(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+
 	if err := r.ParseMultipartForm(10 << 20); err != nil { // 10MB 제한
 		utils.RespondJSON(w, http.StatusBadRequest, "잘못된 요청입니다.")
 		return
@@ -28,8 +36,9 @@ func UploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	// 업로드 폴더 생성 (없을 경우)
-	if err := os.MkdirAll(uploadPath, os.ModePerm); err != nil {
+	// 유저 전용 업로드 폴더 생성 (없을 경우)
+	userUploadPath := filepath.Join(uploadPath, username)
+	if err := os.MkdirAll(userUploadPath, os.ModePerm); err != nil {
 		log.Println("업로드 폴더 생성 실패:", err)
 		utils.RespondJSON(w, http.StatusInternalServerError, "업로드 폴더 생성에 실패했습니다.")
 		return
@@ -44,11 +53,11 @@ func UploadFile(w http.ResponseWriter, r *http.Request) {
 
 	// 특수문자 필터링
 	if !utils.IsValidFileName(filename) {
-		utils.RespondJSON(w, http.StatusBadRequest, "파일명은 한글, 알파벳, 숫자, 밑줄(_), 대시(-), 점(.)외의 문자를 허용하지 않습니다.")
+		utils.RespondJSON(w, http.StatusBadRequest, "파일명은 한글, 알파벳, 숫자, 밑줄(_), 대시(-), 점(.) 외의 문자를 허용하지 않습니다.")
 		return
 	}
 
-	savePath := filepath.Join(uploadPath, filename)
+	savePath := filepath.Join(userUploadPath, filename)
 
 	// 같은 이름의 파일 존재 여부 체크
 	if _, err := os.Stat(savePath); err == nil {
@@ -72,6 +81,13 @@ func UploadFile(w http.ResponseWriter, r *http.Request) {
 
 // 파일 수정 (PUT /files/{filename})
 func UpdateFile(w http.ResponseWriter, r *http.Request) {
+	// 인증 체크
+	username, err := utils.CheckAuth(r)
+	if err != nil {
+		utils.RespondJSON(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+
 	vars := mux.Vars(r)
 	filename := vars["filename"]
 
@@ -80,7 +96,8 @@ func UpdateFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filePath := filepath.Join(uploadPath, filepath.Clean(filename))
+	// 유저 디렉토리에서 파일 경로 지정
+	filePath := filepath.Join(uploadPath, username, filepath.Clean(filename))
 
 	// 수정할 파일이 존재하는지 확인합니다.
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
@@ -113,22 +130,37 @@ func UpdateFile(w http.ResponseWriter, r *http.Request) {
 	utils.RespondJSON(w, http.StatusOK, fmt.Sprintf("파일 수정 성공: %s", filename))
 }
 
-// 파일 다운로드 (GET /files/{filename})
+// 파일 다운로드 (GET /files/{username}/{filename})
 func GetFile(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
+	username := vars["username"]
 	filename := vars["filename"]
 
-	if filename == "" {
-		utils.RespondJSON(w, http.StatusBadRequest, "파일 이름을 입력해주세요.")
+	if username == "" || filename == "" {
+		utils.RespondJSON(w, http.StatusBadRequest, "파일 경로를 입력해주세요.")
 		return
 	}
 
-	filePath := filepath.Join(uploadPath, filepath.Clean(filename))
+	filePath := filepath.Join(uploadPath, username, filepath.Clean(filename))
+
+	// 파일 존재 여부 확인
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		utils.RespondJSON(w, http.StatusNotFound, "파일을 찾을 수 없습니다.")
+		return
+	}
+
 	http.ServeFile(w, r, filePath)
 }
 
 // 파일 삭제 (DELETE /files/{filename})
 func DeleteFile(w http.ResponseWriter, r *http.Request) {
+	// 인증 체크
+	username, err := utils.CheckAuth(r)
+	if err != nil {
+		utils.RespondJSON(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+
 	vars := mux.Vars(r)
 	filename := vars["filename"]
 
@@ -137,7 +169,7 @@ func DeleteFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filePath := filepath.Join(uploadPath, filepath.Clean(filename))
+	filePath := filepath.Join(uploadPath, username, filepath.Clean(filename))
 
 	// 파일 존재 여부 확인
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
