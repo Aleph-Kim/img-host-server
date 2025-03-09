@@ -18,6 +18,9 @@ func main() {
 	r.HandleFunc("/files/{username}/{filename}", handlers.GetFile).Methods("GET")
 	r.HandleFunc("/files/{filename}", handlers.DeleteFile).Methods("DELETE")
 
+	// 유저 생성(사용 시에만 주석 해제)
+	// r.HandleFunc("/users", handlers.SaveUser).Methods("POST")
+
 	log.Println("서버 시작: 포트 3000")
 	if err := http.ListenAndServe(":3000", r); err != nil {
 		log.Fatal("서버 실행 실패:", err)
