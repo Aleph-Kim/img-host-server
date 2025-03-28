@@ -2,6 +2,11 @@ FROM golang:1.24
 
 WORKDIR /app
 
+# libvips 설치
+RUN apt-get update && apt-get install -y \
+    libvips-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY . .
 
 # 모듈 초기화

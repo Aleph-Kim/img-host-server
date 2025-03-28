@@ -135,6 +135,7 @@ func GetFile(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	username := vars["username"]
 	filename := vars["filename"]
+	size := r.URL.Query().Get("size") // size 파라미터 가져오기
 
 	if username == "" || filename == "" {
 		utils.RespondJSON(w, http.StatusBadRequest, "파일 경로를 입력해주세요.")
@@ -149,7 +150,20 @@ func GetFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.ServeFile(w, r, filePath)
+	if size == "" {
+		http.ServeFile(w, r, filePath)
+		return
+	} else {
+		resizedImage, err := utils.ResizeImage(size, filePath)
+		if err != nil {
+			utils.RespondJSON(w, http.StatusBadRequest, err.Error())
+			return
+		}
+
+		// Content-Type 설정
+		w.Header().Set("Content-Type", "image/jpeg")
+		w.Write(resizedImage)
+	}
 }
 
 // 파일 삭제 (DELETE /files/{filename})
